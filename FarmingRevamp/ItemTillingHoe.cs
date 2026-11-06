@@ -8,8 +8,8 @@ using Vintagestory.GameContent;
 
 namespace FarmingRevamp;
 
-// Hoe: right click on bare soil starts tilling; holding right click on a field being worked (BlockEntityFurrowWork)
-// digs its furrows or covers sown ones. Soil still covered by sod is refused. Tool modes: paint works each furrow
+// Hoe: right click on dug soil starts tilling; holding right click on a field being worked (BlockEntityFurrowWork)
+// digs its furrows or covers sown ones. Soil not dug over with a shovel yet is refused. Tool modes: paint works each furrow
 // voxel the cursor is swept over, hold works the whole furrow clicked.
 public class ItemTillingHoe : ItemHoe
 {
@@ -72,14 +72,17 @@ public class ItemTillingHoe : ItemHoe
 
         Block? block = blockSel == null ? null : ba.GetBlock(blockSel.Position);
         // Vanilla handles everything else: ground storage, non-soil blocks, the "no block above" error
-        if (block?.Code == null || !block.Code.PathStartsWith("soil") || byEntity.Controls.ShiftKey && byEntity.Controls.CtrlKey || ba.GetBlock(blockSel!.Position.UpCopy()).Id != 0)
+        // Only dug soil tills; soil still under sod (or being dug over) is refused
+        bool dug = block?.Code?.Domain == "farmingrevamp" && block.FirstCodePart() == "dugsoil";
+        bool sod = block != null && (CollectibleBehaviorSodDigging.Fertility(block) != null || block.Code?.Domain == "farmingrevamp" && block.FirstCodePart() == "diggingsoil");
+        if (block == null || !dug && !sod || byEntity.Controls.ShiftKey && byEntity.Controls.CtrlKey || ba.GetBlock(blockSel!.Position.UpCopy()).Id != 0)
         {
             base.OnHeldInteractStart(itemslot, byEntity, blockSel!, entitySel, firstEvent, ref handHandling);
             return;
         }
 
         handHandling = EnumHandHandling.PreventDefault;
-        if (CollectibleBehaviorSodDigging.DugCode(block) != null)
+        if (sod)
         {
             (api as ICoreClientAPI)?.TriggerIngameError(this, "sod", Lang.Get("farmingrevamp:ingameerror-sod"));
             return;

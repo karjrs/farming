@@ -14,5 +14,7 @@
     "block-sowingfarmland-*": "Pole w trakcie siewu",
     "toolmode-paint": "Malowanie bruzd",
     "toolmode-hold": "Cała bruzda",
-    "item-rake": "Grabie"
+    "item-rake": "Grabie",
+    "block-diggingsoil-*": "Gleba w trakcie przekopywania",
+    "block-dugsoil-*": "Przekopana ziemia"
 }

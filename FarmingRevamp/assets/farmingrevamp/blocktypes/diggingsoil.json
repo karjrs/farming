@@ -1,0 +1,23 @@
+{
+	code: "diggingsoil",
+	class: "farmingrevamp.BlockSoilDigging",
+	entityClass: "farmingrevamp.SoilDigging",
+	variantgroups: [
+		{ code: "fertility", states: ["verylow", "low", "medium", "compost", "high"] }
+	],
+	shape: { base: "game:block/basic/cube" },
+	textures: {
+		all: { base: "game:block/soil/fert{fertility}" }
+	},
+	blockmaterial: "Soil",
+	sideopaque: { all: false },
+	sidesolid: { all: true, up: false },
+	resistance: 1.8,
+	sounds: {
+		place: "game:block/dirt",
+		break: "game:block/dirt",
+		hit: "game:block/dirt",
+		walk: "game:walk/grass"
+	},
+	drops: [ { type: "block", code: "game:soil-{fertility}-none" } ]
+}

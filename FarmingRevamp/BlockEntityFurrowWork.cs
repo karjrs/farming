@@ -304,56 +304,8 @@ public abstract class BlockEntityFurrowWork : BlockEntity
     {
         Block? columnBlock = ColumnBlock;
         if (columnBlock == null) return false;
-
-        tessThreadTesselator.TesselateBlock(columnBlock, out MeshData cube);
-        for (int x = 0; x < TillingGrid.Size; x++)
-        {
-            for (int z = 0; z < TillingGrid.Size; z++)
-            {
-                MeshData cell = cube.Clone().Scale(new Vec3f(), 1 / 16f, Grid[x, z] / 16f, 1 / 16f).Translate((Transposed ? z : x) / 16f, 0, (Transposed ? x : z) / 16f);
-                CropUv(cube, cell);
-                mesher.AddMeshData(cell);
-            }
-        }
+        SoilColumnMesh.Add(mesher, tessThreadTesselator, columnBlock, Grid, Transposed);
         return true;
-    }
-
-    // Gives a cell the part of each face texture at its position in the block, so the soil looks like the
-    // untouched block instead of squeezing the whole texture onto every column. Each quad's uv is linear in the
-    // unit-cube corner positions; that mapping is solved from the cube and applied to the cell's vertices.
-    static void CropUv(MeshData cube, MeshData cell)
-    {
-        float[] slope = new float[3];
-        for (int q = 0; q + 4 <= cube.VerticesCount; q += 4)
-        {
-            for (int c = 0; c < 2; c++)
-            {
-                Array.Clear(slope);
-                for (int a = q; a < q + 4; a++)
-                {
-                    for (int b = q; b < q + 4; b++)
-                    {
-                        int axis = -1, diffs = 0;
-                        for (int k = 0; k < 3; k++)
-                        {
-                            if (cube.xyz[3 * a + k] != cube.xyz[3 * b + k]) { axis = k; diffs++; }
-                        }
-                        if (diffs == 1) slope[axis] = (cube.Uv[2 * b + c] - cube.Uv[2 * a + c]) / (cube.xyz[3 * b + axis] - cube.xyz[3 * a + axis]);
-                    }
-                }
-
-                float offset = cube.Uv[2 * q + c];
-                for (int k = 0; k < 3; k++) offset -= slope[k] * cube.xyz[3 * q + k];
-
-                for (int i = q; i < q + 4; i++)
-                {
-                    float uv = offset;
-                    // Clamped: heaps above the block reuse the top edge of the texture
-                    for (int k = 0; k < 3; k++) uv += slope[k] * Math.Clamp(cell.xyz[3 * i + k], 0f, 1f);
-                    cell.Uv[2 * i + c] = uv;
-                }
-            }
-        }
     }
 
     public override void FromTreeAttributes(ITreeAttribute tree, IWorldAccessor worldForResolving)

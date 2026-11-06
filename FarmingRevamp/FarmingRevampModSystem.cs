@@ -19,6 +19,8 @@ public class FarmingRevampModSystem : ModSystem
         api.RegisterBlockClass("farmingrevamp.BlockFurrowWork", typeof(BlockFurrowWork));
         api.RegisterBlockEntityClass("farmingrevamp.TillingSoil", typeof(BlockEntityTillingSoil));
         api.RegisterBlockEntityClass("farmingrevamp.SowingFarmland", typeof(BlockEntitySowingFarmland));
+        api.RegisterBlockClass("farmingrevamp.BlockSoilDigging", typeof(BlockSoilDigging));
+        api.RegisterBlockEntityClass("farmingrevamp.SoilDigging", typeof(BlockEntitySoilDigging));
         api.RegisterBlockClass("farmingrevamp.BlockFurrowedFarmland", typeof(BlockFurrowedFarmland));
         api.RegisterItemClass("farmingrevamp.ItemSowingSeed", typeof(ItemSowingSeed));
     }

@@ -1,108 +1,86 @@
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 
 namespace FarmingRevamp;
 
-// Shovel: hold right click on grassy soil or forest floor to turn the sod over into bare soil.
+// Shovel: right click on soil (with or without grass) or forest floor starts digging it over (BlockEntitySoilDigging);
+// holding right click on a segment there digs it, `width` segments square at once.
 public class CollectibleBehaviorSodDigging : CollectibleBehavior
 {
-    // Seconds to dig at mining speed 1; shovel's vanilla soil mining speed divides it (stone 2.2 … steel 7).
-    const float BaseDigSeconds = 6f;
+    public int Width { get; private set; } = 1;
 
     public CollectibleBehaviorSodDigging(CollectibleObject collObj) : base(collObj) { }
 
+    public override void Initialize(JsonObject properties)
+    {
+        base.Initialize(properties);
+        Width = properties["width"].AsInt(1);
+    }
+
     public override void OnHeldInteractStart(ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, bool firstEvent, ref EnumHandHandling handHandling, ref EnumHandling handling)
     {
-        if (blockSel == null || DugCode(byEntity.World.BlockAccessor.GetBlock(blockSel.Position)) == null) return;
+        if (blockSel == null) return;
+        IWorldAccessor world = byEntity.World;
 
+        if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntitySoilDigging be)
+        {
+            if (be.IsDone) return;
+            handHandling = EnumHandHandling.PreventDefault;
+            handling = EnumHandling.PreventSubsequent;
+            if (world.Side != EnumAppSide.Client) return;
+            int[] segments = be.SegmentsAround(blockSel, Width);
+            if (segments.Length > 0) BlockEntitySoilDigging.StartHold(be, segments);
+            return;
+        }
+
+        Block block = world.BlockAccessor.GetBlock(blockSel.Position);
+        string? fertility = Fertility(block);
         IPlayer? byPlayer = (byEntity as EntityPlayer)?.Player;
-        if (byPlayer == null || !byEntity.World.Claims.TryAccess(byPlayer, blockSel.Position, EnumBlockAccessFlags.BuildOrBreak)) return;
+        if (fertility == null || byPlayer == null || !world.Claims.TryAccess(byPlayer, blockSel.Position, EnumBlockAccessFlags.BuildOrBreak)) return;
+
+        // Plants on top (tall grass, flowers) are cut; anything more solid is in the way
+        BlockPos up = blockSel.Position.UpCopy();
+        Block above = world.BlockAccessor.GetBlock(up);
+        if (above.Id != 0 && above.Replaceable < 6000) return;
 
         handHandling = EnumHandHandling.PreventDefault;
         handling = EnumHandling.PreventSubsequent;
+        if (world.Side != EnumAppSide.Server) return;
+
+        Block? digging = world.GetBlock(new AssetLocation("farmingrevamp", "diggingsoil-" + fertility));
+        if (digging == null) return;
+        if (above.Id != 0) world.BlockAccessor.BreakBlock(up, byPlayer);
+        world.BlockAccessor.SetBlock(digging.BlockId, blockSel.Position);
+        (world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntitySoilDigging)?.Begin(block);
+        world.PlaySoundAt(new AssetLocation("sounds/block/dirt1"), blockSel.Position, 0);
     }
 
     public override bool OnHeldInteractStep(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, ref EnumHandling handling)
     {
-        // Other behaviors (seed covering) handle the rest
-        if (blockSel == null || DugCode(byEntity.World.BlockAccessor.GetBlock(blockSel.Position)) == null) return false;
+        if (blockSel == null || byEntity.World.BlockAccessor.GetBlockEntity(blockSel.Position) is not BlockEntitySoilDigging be) return false;
         handling = EnumHandling.PreventSubsequent;
-        return secondsUsed < DigSeconds(slot, byEntity, blockSel);
+        // The server digs on its own clock and stops on the client's stop packet
+        return byEntity.World.Side != EnumAppSide.Client || be.IsHeld;
     }
 
     public override void OnHeldInteractStop(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, ref EnumHandling handling)
     {
-        if (blockSel == null || byEntity.World.Side != EnumAppSide.Server) return;
-        if (secondsUsed < DigSeconds(slot, byEntity, blockSel)) return;
-
-        IWorldAccessor world = byEntity.World;
-        Block block = world.BlockAccessor.GetBlock(blockSel.Position);
-        AssetLocation? dug = DugCode(block);
-        Block? dugBlock = dug == null ? null : world.GetBlock(dug);
-        if (dugBlock == null) return;
-
-        handling = EnumHandling.PreventSubsequent;
-        world.BlockAccessor.SetBlock(dugBlock.BlockId, blockSel.Position);
-        world.PlaySoundAt(new AssetLocation("sounds/block/dirt1"), blockSel.Position, 0);
-        collObj.DamageItem(world, byEntity, slot);
-        TryDropStone(world, blockSel.Position);
-        if (block.FirstCodePart() == "forestfloor") TryDropSticks(world, blockSel.Position);
+        if (byEntity.World.Side == EnumAppSide.Client) BlockEntitySoilDigging.StopHold();
     }
 
-    // Forest floor hides fallen twigs: 15% chance of 1–2 sticks.
-    static void TryDropSticks(IWorldAccessor world, BlockPos pos)
+    public override bool OnHeldInteractCancel(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, EnumItemUseCancelReason cancelReason, ref EnumHandling handled)
     {
-        if (world.Rand.NextDouble() >= 0.15) return;
-        Item? stick = world.GetItem(new AssetLocation("stick"));
-        if (stick != null) world.SpawnItemEntity(new ItemStack(stick, 1 + world.Rand.Next(2)), pos.ToVec3d().Add(0.5, 1.1, 0.5));
+        if (byEntity.World.Side == EnumAppSide.Client) BlockEntitySoilDigging.StopHold();
+        return base.OnHeldInteractCancel(secondsUsed, slot, byEntity, blockSel, entitySel, cancelReason, ref handled);
     }
 
-    // Chance of turning up a loose stone of the local rock (first block below with a rock variant: rock, gravel, sand…).
-    static void TryDropStone(IWorldAccessor world, BlockPos pos)
-    {
-        for (int depth = 1; depth <= 16; depth++)
-        {
-            string? rock = world.BlockAccessor.GetBlock(pos.DownCopy(depth)).Variant["rock"];
-            if (rock == null) continue;
-
-            string? fertility = world.BlockAccessor.GetBlock(pos).Variant["fertility"];
-            if (world.Rand.NextDouble() >= StoneChance(depth, fertility, rock, pos.Y - world.SeaLevel)) return;
-
-            Item? stone = world.GetItem(new AssetLocation("stone-" + rock));
-            if (stone != null) world.SpawnItemEntity(new ItemStack(stone), pos.ToVec3d().Add(0.5, 1.1, 0.5));
-            return;
-        }
-    }
-
-    // Shallow soil over rock is stony: 30% at depth ≤2 down to 3% at ≥6, scaled by fertility, rock hardness and altitude.
-    static double StoneChance(int depth, string? fertility, string rock, int aboveSeaLevel)
-    {
-        double chance = 0.30 - 0.0675 * System.Math.Clamp(depth - 2, 0, 4);
-        chance *= fertility switch { "verylow" => 2.0, "low" => 1.75, "compost" or "high" => 1.25, _ => 1.5 };
-        chance *= rock switch
-        {
-            "granite" or "andesite" or "basalt" or "peridotite" or "chert" or "conglomerate" => 1.25, // hard, breaks into stones
-            "chalk" or "limestone" or "claystone" or "shale" or "sandstone" => 0.75, // soft, weathers into fines
-            _ => 1.0
-        };
-        chance *= 1 + System.Math.Clamp(aboveSeaLevel / 100.0, 0, 1); // up to x2 in the mountains
-        return System.Math.Min(chance, 0.75);
-    }
-
-    float DigSeconds(ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel)
-    {
-        Block block = byEntity.World.BlockAccessor.GetBlock(blockSel.Position);
-        float speed = collObj.GetMiningSpeed(slot.Itemstack!, blockSel, block, (byEntity as EntityPlayer)?.Player);
-        return BaseDigSeconds / System.Math.Max(speed, 0.1f);
-    }
-
-    // Bare-soil block the sod turns into, or null if there is no sod to dig.
-    internal static AssetLocation? DugCode(Block block)
+    // Fertility of the dug soil, or null if the block cannot be dug over: vanilla soil (the tillable block) and forest floor
+    internal static string? Fertility(Block block)
     {
         if (block.Code == null || block.Code.Domain != "game") return null;
-        if (block.FirstCodePart() == "forestfloor") return new AssetLocation("soil-verylow-none");
-        if (block.FirstCodePart() == "soil" && block.Variant["grasscoverage"] is string grass && grass != "none") return block.CodeWithVariant("grasscoverage", "none");
-        return null;
+        if (block.FirstCodePart() == "forestfloor") return "verylow";
+        return block.FirstCodePart() == "soil" ? block.Variant["fertility"] : null;
     }
 }

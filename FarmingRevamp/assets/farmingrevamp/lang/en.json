@@ -15,5 +15,7 @@
     "block-sowingfarmland-*": "Farmland being sown",
     "toolmode-paint": "Paint furrows",
     "toolmode-hold": "Dig whole furrow",
-    "item-rake": "Rake"
+    "item-rake": "Rake",
+    "block-diggingsoil-*": "Soil being dug over",
+    "block-dugsoil-*": "Dug soil"
 }

@@ -17,11 +17,20 @@ Rozmowa z autorem toczy się po polsku; kod, komentarze i identyfikatory po angi
 
 ## Cykl uprawy (co już działa)
 
-1. **Darń → goła ziemia** — łopata, przytrzymanie PPM na glebie z trawą lub ściółce leśnej
-   (`CollectibleBehaviorSodDigging`). Czas zależy od szybkości kopania łopaty. Szansa na kamień miejscowej skały
-   (zależna od głębokości skały, żyzności, twardości skały, wysokości n.p.m.) i na patyki ze ściółki.
-2. **Oranie** — motyka PPM na gołej ziemi (`soil-*-none`, wolne miejsce nad) zamienia ją w `tillingsoil-{fertility}-{side}`;
-   kierunek rzędów (`ns`/`we`) wg kierunku patrzenia. Gleba z darnią jest odrzucana komunikatem.
+1. **Przekopywanie łopatą** (`CollectibleBehaviorSodDigging`, `BlockEntitySoilDigging`) — PPM łopatą na `soil-*`
+   (z trawą lub bez) albo ściółce leśnej zamienia blok w `diggingsoil-{fertility}` (ściółka → `verylow`); rośliny nad
+   blokiem są ścinane. Blok dzieli się na 2×2 segmenty po 8×8 wokseli (na test; stała `Segments`), pomarańczowe ramki.
+   Przytrzymanie PPM na segmencie: po połowie czasu dziura w kształcie ostrza (6 wokseli szerokości, zaokrąglone rogi,
+   4 głębokości przy prostej ścianie od strony gracza, płycej z tyłu), po całym czasie odwrócona skiba — bryła z gładkim
+   wierzchem (odcisk ostrza), 1–2 woksele nad gruntem, pochylona. Kształty bez losowości. Czas segmentu
+   `3 s / szybkość kopania łopaty`; puszczenie po dziurze zachowuje ją. Szerokość (`properties.width` zachowania,
+   w segmentach, kwadrat N×N) domyślnie 1.
+   Po wszystkich segmentach `ExchangeBlock` → `dugsoil-{fertility}` (ten sam block entity, zachowuje grudy; trawa nie odrasta),
+   łopata traci 1 punkt wytrzymałości. Nietknięte segmenty rysowane z pierwotnego bloku (kod w atrybucie `original`); trawę
+   (vanilla rysuje ją shaderem `TopSoil` z `specialSecondTexture`, niedostępnym dla siatek block entity) dokłada
+   `SoilColumnMesh.AddTopsoilOverlay` jako osobne ściany zabarwione klimatem/porą roku.
+2. **Oranie** — motyka PPM na przekopanej ziemi (`dugsoil-*`, wolne miejsce nad) zamienia ją w `tillingsoil-{fertility}-{side}`;
+   kierunek rzędów (`ns`/`we`) wg kierunku patrzenia. Gleba nieprzekopana (`soil-*`, ściółka, `diggingsoil`) jest odrzucana komunikatem.
    Vanillowe oranie motyką zostaje pod Shift+Ctrl.
 3. **Kopanie bruzd** (`BlockEntityTillingSoil`) — bruzda 2 woksele szerokości, 1 głębokości, w dowolnym miejscu
    w poprzek bloku. 3 zalecane bruzdy (x = 2–3, 7–8, 12–13) podświetlone na pomarańczowo, reszta kopalnych wokseli
@@ -74,9 +83,13 @@ od dalszego końca w stronę gracza, cały rząd w ~1,2 s (`FurrowMs`), puszczen
   woksel. Klient wysyła linie/woksele sam, bo pozycja trafienia na serwerze jest niedokładna (jak w knappingu);
   serwer sprawdza zakres, claimy, narzędzie i szerokość.
 - `TillingOutlineRenderer` — ramki wokseli jak w knappingu: pomarańczowe (do zrobienia), szare (opcjonalne).
+- `SoilColumnMesh` — rysowanie siatki wysokości jako kolumn wyciętych z sześcianu bloku (z przycinaniem UV); używają go oba
+  rodzaje pól i przekopywanie.
+- `BlockSoilDigging` + `BlockEntitySoilDigging` — przekopywanie i przekopana ziemia; pakiety 1100 start (lista segmentów),
+  1101 stop; serwer liczy postęp z własnego zegara.
 - `BlockFurrowWork` — blok obu pól: strefy zaznaczenia z block entity, kliknięcie pustą ręką.
 - Rejestracja klas: `FarmingRevampModSystem.Start`.
-- Assety: `blocktypes/` (`farmland`, `tillingsoil`, `sowingfarmland`), `patches/` (hoe, shovel, seeds, farmland),
+- Assety: `blocktypes/` (`farmland`, `diggingsoil`, `dugsoil`, `tillingsoil`, `sowingfarmland`), `patches/` (hoe, shovel, seeds, farmland),
   `itemtypes/rake.json`, `recipes/grid/rake.json`, `shapes/`, `lang/en.json` + `pl.json`.
 
 ## Założenia projektowe (ustalone z autorem)
@@ -98,6 +111,11 @@ od dalszego końca w stronę gracza, cały rząd w ~1,2 s (`FurrowMs`), puszczen
 - `modinfo.json`: autor „Unknown”, opis „To be added”; w `FarmingRevampModSystem` zostały logi „Hello from template mod”.
 
 ## Do ustalenia z autorem
+
+- **TODO: znaleziska przy przekopywaniu** — stara mechanika dawała kamień miejscowej skały (szansa wg głębokości skały,
+  żyzności, twardości skały, wysokości n.p.m.; 30% → 3%, limit 75%) i 1–2 patyki ze ściółki (15%). Na razie wyłączone,
+  do przywrócenia w nowej formie (np. losowane na segment). Stary kod: commit `fb44665`, `CollectibleBehaviorSodDigging`.
+- `tillingsoil` zaczyna od płaskiej powierzchni — czy przenosić grudy z `dugsoil` do siatki orki.
 
 - Spulchnianie gleby grabiami pod zboża — mechanika, wynik, dla jakich upraw.
 - Docelowy kształt gotowego pola przy swobodnych bruzdach (czy zapamiętywać własną siatkę).
