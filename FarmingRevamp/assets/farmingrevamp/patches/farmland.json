@@ -1,0 +1,3 @@
+[
+    { "op": "replace", "path": "/shape", "value": { "base": "farmingrevamp:block/farmland-furrowed" }, "file": "game:blocktypes/soil/farmland.json" }
+]

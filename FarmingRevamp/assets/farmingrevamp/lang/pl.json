@@ -1,0 +1,18 @@
+{
+    "ingameerror-sod": "Najpierw przekop darń łopatą",
+    "block-tillingsoil-*": "Gleba w trakcie orki",
+    "block-farmland-dry-verylow-*": "Suche pole uprawne (jałowe)",
+    "block-farmland-dry-low-*": "Suche pole uprawne (mało żyzne)",
+    "block-farmland-dry-medium-*": "Suche pole uprawne (średnio żyzne)",
+    "block-farmland-dry-high-*": "Suche pole uprawne (czarnoziem)",
+    "block-farmland-dry-compost-*": "Suche pole uprawne (bardzo żyzne)",
+    "block-farmland-moist-verylow-*": "Wilgotne pole uprawne (jałowe)",
+    "block-farmland-moist-low-*": "Wilgotne pole uprawne (mało żyzne)",
+    "block-farmland-moist-medium-*": "Wilgotne pole uprawne (średnio żyzne)",
+    "block-farmland-moist-high-*": "Wilgotne pole uprawne (czarnoziem)",
+    "block-farmland-moist-compost-*": "Wilgotne pole uprawne (bardzo żyzne)",
+    "block-sowingfarmland-*": "Pole w trakcie siewu",
+    "toolmode-paint": "Malowanie bruzd",
+    "toolmode-hold": "Cała bruzda",
+    "item-rake": "Grabie"
+}

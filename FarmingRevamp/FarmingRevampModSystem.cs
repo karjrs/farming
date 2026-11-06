@@ -1,4 +1,4 @@
-﻿using Vintagestory.API.Client;
+using Vintagestory.API.Client;
 using Vintagestory.API.Server;
 using Vintagestory.API.Config;
 using Vintagestory.API.Common;
@@ -13,6 +13,14 @@ public class FarmingRevampModSystem : ModSystem
     public override void Start(ICoreAPI api)
     {
         Mod.Logger.Notification("Hello from template mod: " + api.Side);
+        api.RegisterCollectibleBehaviorClass("farmingrevamp.SodDigging", typeof(CollectibleBehaviorSodDigging));
+        api.RegisterCollectibleBehaviorClass("farmingrevamp.SeedCovering", typeof(CollectibleBehaviorSeedCovering));
+        api.RegisterItemClass("farmingrevamp.ItemTillingHoe", typeof(ItemTillingHoe));
+        api.RegisterBlockClass("farmingrevamp.BlockFurrowWork", typeof(BlockFurrowWork));
+        api.RegisterBlockEntityClass("farmingrevamp.TillingSoil", typeof(BlockEntityTillingSoil));
+        api.RegisterBlockEntityClass("farmingrevamp.SowingFarmland", typeof(BlockEntitySowingFarmland));
+        api.RegisterBlockClass("farmingrevamp.BlockFurrowedFarmland", typeof(BlockFurrowedFarmland));
+        api.RegisterItemClass("farmingrevamp.ItemSowingSeed", typeof(ItemSowingSeed));
     }
 
     public override void StartServerSide(ICoreServerAPI api)

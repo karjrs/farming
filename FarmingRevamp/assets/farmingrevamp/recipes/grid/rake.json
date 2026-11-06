@@ -1,0 +1,16 @@
+{
+    "ingredientPattern": "SSS,_S_",
+    "ingredients": {
+        "S": {
+            "type": "item",
+            "code": "game:stick"
+        }
+    },
+    "width": 3,
+    "height": 2,
+    "output": {
+        "type": "item",
+        "code": "farmingrevamp:rake",
+        "quantity": 1
+    }
+}

@@ -1,3 +1,19 @@
 {
-    "hello": "hello world!"
+    "hello": "hello world!",
+    "ingameerror-sod": "Turn the sod over with a shovel first",
+    "block-tillingsoil-*": "Soil being tilled",
+    "block-farmland-dry-verylow-*": "Dry Farmland (Barren)",
+    "block-farmland-dry-low-*": "Dry Farmland (Low Fertility)",
+    "block-farmland-dry-medium-*": "Dry Farmland (Medium Fertility)",
+    "block-farmland-dry-high-*": "Dry Farmland (Terra preta)",
+    "block-farmland-dry-compost-*": "Dry Farmland (High Fertility)",
+    "block-farmland-moist-verylow-*": "Moist Farmland (Barren)",
+    "block-farmland-moist-low-*": "Moist Farmland (Low Fertility)",
+    "block-farmland-moist-medium-*": "Moist Farmland (Medium Fertility)",
+    "block-farmland-moist-high-*": "Moist Farmland (Terra preta)",
+    "block-farmland-moist-compost-*": "Moist Farmland (High Fertility)",
+    "block-sowingfarmland-*": "Farmland being sown",
+    "toolmode-paint": "Paint furrows",
+    "toolmode-hold": "Dig whole furrow",
+    "item-rake": "Rake"
 }

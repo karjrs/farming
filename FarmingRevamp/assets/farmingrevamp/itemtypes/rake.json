@@ -1,0 +1,88 @@
+{
+    "code": "rake",
+    "tags": [
+        "tool"
+    ],
+    "behaviors": [
+        {
+            "name": "farmingrevamp.SeedCovering",
+            "properties": {
+                "width": 9
+            }
+        }
+    ],
+    "shape": {
+        "base": "farmingrevamp:item/rake"
+    },
+    "textures": {
+        "handle": {
+            "base": "game:item/tool/handle"
+        }
+    },
+    "maxstacksize": 1,
+    "durability": 60,
+    "damagedby": [
+        "blockbreaking",
+        "attacking"
+    ],
+    "creativeinventory": {
+        "general": [
+            "*"
+        ],
+        "items": [
+            "*"
+        ],
+        "tools": [
+            "*"
+        ]
+    },
+    "guiTransform": {
+        "translation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "rotation": {
+            "x": -66,
+            "y": -130,
+            "z": -180
+        },
+        "origin": {
+            "x": 0.55,
+            "y": 0,
+            "z": 0.52
+        },
+        "scale": 1.6
+    },
+    "groundTransform": {
+        "translation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "rotation": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+        },
+        "origin": {
+            "x": 0.5,
+            "y": 0,
+            "z": 0.5
+        },
+        "scale": 3.6
+    },
+    "tpHandTransform": {
+        "translation": {
+            "x": -0.8,
+            "y": -0.5,
+            "z": -0.1
+        },
+        "rotation": {
+            "x": 90,
+            "y": 0,
+            "z": -10
+        },
+        "scale": 1
+    }
+}

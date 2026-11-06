@@ -1,0 +1,3 @@
+[
+    { "op": "replace", "path": "/class", "value": "farmingrevamp.ItemTillingHoe", "file": "game:itemtypes/tool/hoe.json" }
+]
