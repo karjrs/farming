@@ -19,12 +19,13 @@ Rozmowa z autorem toczy się po polsku; kod, komentarze i identyfikatory po angi
 
 1. **Przekopywanie łopatą** (`CollectibleBehaviorSodDigging`, `BlockEntitySoilDigging`) — PPM łopatą na `soil-*`
    (z trawą lub bez) albo ściółce leśnej zamienia blok w `diggingsoil-{fertility}` (ściółka → `verylow`); rośliny nad
-   blokiem są ścinane. Blok dzieli się na 2×2 segmenty po 8×8 wokseli (na test; stała `Segments`), pomarańczowe ramki.
-   Przytrzymanie PPM na segmencie: po połowie czasu dziura w kształcie ostrza (6 wokseli szerokości, zaokrąglone rogi,
-   4 głębokości przy prostej ścianie od strony gracza, płycej z tyłu), po całym czasie odwrócona skiba — bryła z gładkim
-   wierzchem (odcisk ostrza), 1–2 woksele nad gruntem, pochylona. Kształty bez losowości. Czas segmentu
+   blokiem są ścinane. Blok dzieli się na 8 segmentów: 2 kolumny × 4 rzędy, segment = sztych 8 wokseli w poprzek
+   (ostrze) × 4 wzdłuż; rzędy biegną wg kierunku patrzenia przy rozpoczęciu (`alongX`). Pomarańczowe ramki.
+   Przytrzymanie PPM na segmencie: po połowie czasu stroma dziura na 4 woksele (brzegi obok ostrza obsypane), po całym
+   czasie odwrócona skiba — bryła z gładkim wierzchem (odcisk ostrza), 1–2 woksele nad gruntem, pochylona od gracza.
+   Kształt stały, część wokseli losowo ±1 (szanse w `CutSpit`/`TurnSpit`). Czas segmentu
    `3 s / szybkość kopania łopaty`; puszczenie po dziurze zachowuje ją. Szerokość (`properties.width` zachowania,
-   w segmentach, kwadrat N×N) domyślnie 1.
+   w segmentach: do N kolumn i N rzędów) domyślnie 1.
    Po wszystkich segmentach `ExchangeBlock` → `dugsoil-{fertility}` (ten sam block entity, zachowuje grudy; trawa nie odrasta),
    łopata traci 1 punkt wytrzymałości. Nietknięte segmenty rysowane z pierwotnego bloku (kod w atrybucie `original`); trawę
    (vanilla rysuje ją shaderem `TopSoil` z `specialSecondTexture`, niedostępnym dla siatek block entity) dokłada

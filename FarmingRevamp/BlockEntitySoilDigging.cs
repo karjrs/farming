@@ -8,22 +8,25 @@ using Vintagestory.API.MathTools;
 
 namespace FarmingRevamp;
 
-// Soil being dug over with a shovel (single digging), split into 2×2 segments of 8×8 voxels. Holding right click on a
-// segment first drives the spade in and levers the spit out (a blade-shaped hole a spade deep, its straight face on
-// the player's side), then turns the spit over: a clod showing the smooth face the blade cut, 1–2 voxels above the
-// ground. Once every segment is turned the block becomes dug soil, keeping this block entity and so its clods.
+// Soil being dug over with a shovel (single digging), split into 2 columns × 4 rows of segments, each a spit 8 voxels
+// across (the blade) and 4 along the rows; rows run the way the player looked when starting. Holding right click on a
+// segment first drives the spade in and levers the spit out (a steep hole a spade deep), then turns the spit over: a
+// clod showing the smooth face the blade cut, 1–2 voxels above the ground; a few voxels of both vary at random.
+// Once every segment is turned the block becomes dug soil, keeping this block entity and so its clods.
 public class BlockEntitySoilDigging : BlockEntity
 {
     const int StartPacket = 1100, StopPacket = 1101;
-    public const int Segments = 2, SegmentSize = TillingGrid.Size / Segments;
+    const int Cols = 2, Rows = 4, Across = TillingGrid.Size / Cols, Along = TillingGrid.Size / Rows;
     const int Ground = 16;
     const byte Untouched = 0, Hole = 1, Turned = 2;
     // Seconds per segment at mining speed 1 (shovels: stone 2.2 … steel 7), half to cut the spit, half to turn it
     const float BaseSegmentSeconds = 3f;
 
     readonly TillingGrid grid = new();
-    // Per segment (sx * Segments + sz)
-    readonly byte[] states = new byte[Segments * Segments];
+    // Per segment (col * Rows + row)
+    readonly byte[] states = new byte[Cols * Rows];
+    // Whether the rows run along x (else along z)
+    bool alongX;
     // Block the soil was dug from (grass, forest floor); untouched segments still look like it
     AssetLocation? original;
 
@@ -47,16 +50,26 @@ public class BlockEntitySoilDigging : BlockEntity
 
     public bool IsDone => states.All(s => s == Turned);
 
-    static IEnumerable<int> Columns(int segment) =>
-        from i in Enumerable.Range(0, SegmentSize) from j in Enumerable.Range(0, SegmentSize)
-        select (segment / Segments * SegmentSize + i) * TillingGrid.Size + segment % Segments * SegmentSize + j;
+    // Grid rectangle of segment s: corner and size in x and z
+    (int x0, int z0, int w, int d) Rect(int s)
+    {
+        int across = s / Rows * Across, along = s % Rows * Along;
+        return alongX ? (along, across, Along, Across) : (across, along, Across, Along);
+    }
 
-    static int SegmentOf(int x, int z) => x / SegmentSize * Segments + z / SegmentSize;
+    IEnumerable<int> Columns(int s)
+    {
+        var (x0, z0, w, d) = Rect(s);
+        return from x in Enumerable.Range(x0, w) from z in Enumerable.Range(z0, d) select x * TillingGrid.Size + z;
+    }
+
+    int SegmentOf(int x, int z) => alongX ? z / Across * Rows + x / Along : x / Across * Rows + z / Along;
 
     // Server side, right after the block was placed
-    public void Begin(Block from)
+    public void Begin(Block from, bool rowsAlongX)
     {
         original = from.Code;
+        alongX = rowsAlongX;
         MarkDirty(true);
     }
 
@@ -83,25 +96,25 @@ public class BlockEntitySoilDigging : BlockEntity
     {
         SelectionBoxes = Enumerable.Range(0, states.Length).Select(s =>
         {
-            float x = s / Segments * SegmentSize / 16f, z = s % Segments * SegmentSize / 16f, size = SegmentSize / 16f;
-            return new Cuboidf(x, 0, z, x + size, Columns(s).Max(c => grid.Heights[c]) / 16f, z + size);
+            var (x0, z0, w, d) = Rect(s);
+            return new Cuboidf(x0 / 16f, 0, z0 / 16f, (x0 + w) / 16f, Columns(s).Max(c => grid.Heights[c]) / 16f, (z0 + d) / 16f);
         }).ToArray();
 
         // The top of each segment still to dig
         var boxes = from s in Enumerable.Range(0, states.Length) where states[s] != Turned
-            let x = s / Segments * SegmentSize let z = s % Segments * SegmentSize let top = Columns(s).Max(c => grid.Heights[c])
-            select new[] { x, top - 1, z, x + SegmentSize, top, z + SegmentSize };
+            let r = Rect(s) let top = Columns(s).Max(c => grid.Heights[c])
+            select new[] { r.x0, top - 1, r.z0, r.x0 + r.w, top, r.z0 + r.d };
         outlineRenderer?.RegenMesh(boxes, Enumerable.Empty<int[]>(), false);
     }
 
-    // Client side: the segments within a square `width` segments wide around the hit position that are still to dig
+    // Client side: the segments still to dig within `width` columns and rows around the hit position
     public int[] SegmentsAround(BlockSelection blockSel, int width)
     {
         Vec3d hit = blockSel.HitPosition.SubCopy(blockSel.Face.Normald.Clone().Mul(0.001));
-        width = Math.Clamp(width, 1, Segments);
-        int sx = Math.Clamp((int)(hit.X * Segments) - (width - 1) / 2, 0, Segments - width);
-        int sz = Math.Clamp((int)(hit.Z * Segments) - (width - 1) / 2, 0, Segments - width);
-        return (from i in Enumerable.Range(sx, width) from j in Enumerable.Range(sz, width) select i * Segments + j)
+        int segment = SegmentOf(Math.Clamp((int)(hit.X * 16), 0, 15), Math.Clamp((int)(hit.Z * 16), 0, 15));
+        int cols = Math.Min(width, Cols), rows = Math.Min(width, Rows);
+        int col = Math.Clamp(segment / Rows - (cols - 1) / 2, 0, Cols - cols), row = Math.Clamp(segment % Rows - (rows - 1) / 2, 0, Rows - rows);
+        return (from c in Enumerable.Range(col, cols) from r in Enumerable.Range(row, rows) select c * Rows + r)
             .Where(s => states[s] != Turned).ToArray();
     }
 
@@ -152,7 +165,7 @@ public class BlockEntitySoilDigging : BlockEntity
     }
 
     static bool FitsWidth(byte[] segments, int width) =>
-        segments.Max(s => s / Segments) - segments.Min(s => s / Segments) < width && segments.Max(s => s % Segments) - segments.Min(s => s % Segments) < width;
+        segments.Max(s => s / Rows) - segments.Min(s => s / Rows) < width && segments.Max(s => s % Rows) - segments.Min(s => s % Rows) < width;
 
     void OnDigTick(float dt)
     {
@@ -172,8 +185,8 @@ public class BlockEntitySoilDigging : BlockEntity
             if (target == Hole) CutSpit(s, holdPlayer); else TurnSpit(s, holdPlayer);
             states[s] = target;
             changed = true;
-            float x = (s / Segments + 0.5f) * SegmentSize / 16f, z = (s % Segments + 0.5f) * SegmentSize / 16f;
-            Api.World.SpawnCubeParticles(Pos, Pos.ToVec3d().Add(x, 1, z), 0.25f, 6, 0.5f);
+            var (x0, z0, w, d) = Rect(s);
+            Api.World.SpawnCubeParticles(Pos, Pos.ToVec3d().Add((x0 + w / 2f) / 16, 1, (z0 + d / 2f) / 16), 0.25f, 6, 0.5f);
         }
         if (!changed) return;
 
@@ -185,39 +198,38 @@ public class BlockEntitySoilDigging : BlockEntity
         MarkDirty(true);
     }
 
-    // The spade's hole: as wide as the blade (rounded corners) and a spit (~25 cm) deep at the straight face where it went
-    // in (the player's side), shallower at the back where it levered the spit out; the edges beside the blade crumble
+    // The spade's hole: steep-sided, a spit (~25 cm) deep across the blade's width; the soil beside the blade crumbles
+    // in a little, and some crumbs fall to the bottom
     void CutSpit(int s, IPlayer player) => Shape(s, player, (along, across) =>
     {
-        if (across == 0 || across == SegmentSize - 1) return Ground - 1;
-        int depth = across == 1 || across == SegmentSize - 2 ? 3 : 4;
-        if (along >= SegmentSize - 2) depth -= along - (SegmentSize - 3);
-        return Ground - depth;
+        if (across == 0 || across == Across - 1) return Chance(0.35) ? Ground : Ground - 1;
+        return Ground - 4 + (Chance(0.2) ? 1 : 0);
     });
 
-    // The spit turned over: a clod whose top is the smooth face the blade cut, tilted up away from the face it was
-    // levered from, rounded at its corners
+    // The spit turned over: a clod whose top is the smooth face the blade cut, tilted up away from the player and
+    // rounded at its corners, sitting in the hole; some voxels stick out or crumble off
     void TurnSpit(int s, IPlayer player) => Shape(s, player, (along, across) =>
     {
-        bool edgeAlong = along == 0 || along == SegmentSize - 1, edgeAcross = across == 0 || across == SegmentSize - 1;
-        if (edgeAlong || edgeAcross) return Ground;
-        bool corner = (along == 1 || along == SegmentSize - 2) && (across == 1 || across == SegmentSize - 2);
-        return corner ? Ground + 1 : Ground + 1 + (along >= SegmentSize / 2 ? 1 : 0);
+        bool edge = along == 0 || along == Along - 1 || across == 0 || across == Across - 1;
+        if (edge) return Chance(0.2) ? Ground + 1 : Ground;
+        bool corner = across == 1 || across == Across - 2;
+        int height = Ground + 1 + (!corner && along >= Along / 2 ? 1 : 0);
+        return Chance(0.15) ? height + (Chance(0.5) ? 1 : -1) : height;
     });
 
-    // Sets segment s to height(along, across), `along` counted from its side facing the player
+    bool Chance(double p) => Api.World.Rand.NextDouble() < p;
+
+    // Sets segment s to height(along, across), `along` counted from its end nearer the player
     void Shape(int s, IPlayer player, System.Func<int, int, int> height)
     {
-        int x0 = s / Segments * SegmentSize, z0 = s % Segments * SegmentSize;
-        double dx = player.Entity.Pos.X - (Pos.X + (x0 + SegmentSize / 2.0) / 16), dz = player.Entity.Pos.Z - (Pos.Z + (z0 + SegmentSize / 2.0) / 16);
-        bool alongX = Math.Abs(dx) > Math.Abs(dz);
-        bool fromHigh = alongX ? dx > 0 : dz > 0;
-        for (int i = 0; i < SegmentSize; i++)
+        var (x0, z0, w, d) = Rect(s);
+        double toPlayer = alongX ? player.Entity.Pos.X - (Pos.X + (x0 + w / 2.0) / 16) : player.Entity.Pos.Z - (Pos.Z + (z0 + d / 2.0) / 16);
+        for (int x = x0; x < x0 + w; x++)
         {
-            for (int j = 0; j < SegmentSize; j++)
+            for (int z = z0; z < z0 + d; z++)
             {
-                int a = alongX ? i : j, c = alongX ? j : i;
-                grid[x0 + i, z0 + j] = height(fromHigh ? SegmentSize - 1 - a : a, c);
+                int along = alongX ? x - x0 : z - z0, across = alongX ? z - z0 : x - x0;
+                grid[x, z] = height(toPlayer > 0 ? Along - 1 - along : along, across);
             }
         }
     }
@@ -259,6 +271,7 @@ public class BlockEntitySoilDigging : BlockEntity
         if (heights?.Length == grid.Heights.Length) heights.CopyTo(grid.Heights, 0);
         byte[]? segments = tree.GetBytes("segments");
         if (segments?.Length == states.Length) segments.CopyTo(states, 0);
+        alongX = tree.GetBool("alongX");
         string? from = tree.GetString("original");
         original = from == null ? null : new AssetLocation(from);
         if (Api != null) Refresh();
@@ -269,6 +282,7 @@ public class BlockEntitySoilDigging : BlockEntity
         base.ToTreeAttributes(tree);
         tree.SetBytes("heights", grid.Heights);
         tree.SetBytes("segments", states);
+        tree.SetBool("alongX", alongX);
         if (original != null) tree.SetString("original", original.ToString());
     }
 }

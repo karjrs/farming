@@ -1,3 +1,4 @@
+using System;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
@@ -6,7 +7,7 @@ using Vintagestory.API.MathTools;
 namespace FarmingRevamp;
 
 // Shovel: right click on soil (with or without grass) or forest floor starts digging it over (BlockEntitySoilDigging);
-// holding right click on a segment there digs it, `width` segments square at once.
+// holding right click on a segment there digs it, up to `width` columns and rows of segments at once.
 public class CollectibleBehaviorSodDigging : CollectibleBehavior
 {
     public int Width { get; private set; } = 1;
@@ -53,7 +54,9 @@ public class CollectibleBehaviorSodDigging : CollectibleBehavior
         if (digging == null) return;
         if (above.Id != 0) world.BlockAccessor.BreakBlock(up, byPlayer);
         world.BlockAccessor.SetBlock(digging.BlockId, blockSel.Position);
-        (world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntitySoilDigging)?.Begin(block);
+        // Rows run along the direction the player is looking
+        Vec3f view = byEntity.Pos.GetViewVector();
+        (world.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntitySoilDigging)?.Begin(block, Math.Abs(view.X) > Math.Abs(view.Z));
         world.PlaySoundAt(new AssetLocation("sounds/block/dirt1"), blockSel.Position, 0);
     }
 
